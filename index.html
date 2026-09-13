@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>O Guardião dos Biomas - Mobile & Desktop</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none; /* Evita seleção acidental de texto no mobile */
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0d0d11;
+            color: #ffffff;
+            touch-action: manipulation;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Top HUD */
+        #hud {
+            background: rgba(0, 0, 0, 0.95);
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #d4af37;
+            z-index: 10;
+            min-height: 45px;
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: #333;
+            font-size: 11px;
+            opacity: 0.4;
+        }
+
+        .badge.active {
+            opacity: 1;
+            background: #e67e22;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .hud-btn {
+            background-color: #d4af37;
+            color: #000;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        /* Área do Canvas */
+        #canvas-container {
+            position: relative;
+            flex: 1;
+            background-color: #121218;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Controls Virtuais para Mobile (D-Pad) */
+        #mobile-controls {
+            position: absolute;
+            bottom: 130px;
+            left: 20px;
+            width: 130px;
+            height: 130px;
+            z-index: 20;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 4px;
+            opacity: 0.7;
+        }
+
+        .dbtn {
+            background: rgba(212, 175, 55, 0.4);
+            border: 2px solid #d4af37;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+
+        .dbtn:active {
+            background: rgba(212, 175, 55, 0.9);
+            color: #000;
+        }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+
+        /* Caixa de Diálogo */
+        #dialog-box {
+            min-height: 110px;
+            background-color: #0a0a0e;
+            border-top: 3px solid #d4af37;
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        #npc-name {
+            font-weight: bold;
+            color: #d4af37;
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        #text-content {
+            font-size: 13px;
+            color: #e0e0e0;
+            line-height: 1.3;
+        }
+
+        #quiz-options {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .quiz-btn {
+            background: #252535;
+            color: #fff;
+            border: 1px solid #d4af37;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        /* Tela de Seleção */
+        #selection-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            background: linear-gradient(135deg, #1e1e2f, #111119);
+            padding: 20px;
+            text-align: center;
+            overflow-y: auto;
+        }
+
+        .character-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .character-card {
+            background-color: #1a1a24;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            width: 140px;
+            cursor: pointer;
+        }
+
+        .character-avatar { font-size: 40px; }
+        .character-name { font-weight: bold; color: #d4af37; margin: 8px 0 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hud-item">
+            <span><b>Bioma:</b> Deserto</span>
+        </div>
+        <div class="hud-item">
+            <span id="frag-Calor" class="badge">🔥 Fragmento</span>
+            <button class="hud-btn" onclick="toggleJournal()">📖 Diário</button>
+            <button class="hud-btn" onclick="toggleFullScreen()">⛶ Telas</button>
+        </div>
+    </div>
+
+    <!-- Tela de Seleção de Personagem -->
+    <div id="selection-screen">
+        <h2 style="color: #d4af37; font-size: 26px;">O Guardião dos Biomas</h2>
+        <p style="color: #aaa; margin-top: 6px; font-size: 14px;">Escolha o seu explorador:</p>
+        
+        <div class="character-container">
+            <div class="character-card" onclick="selecionarPersonagem('🏃‍♂️', 'Alex')">
+                <div class="character-avatar">🏃‍♂️</div>
+                <div class="character-name">Alex</div>
+            </div>
+            <div class="character-card" onclick="selecionarPersonagem('🏃‍♀️', 'Bia')">
+                <div class="character-avatar">🏃‍♀️</div>
+                <div class="character-name">Bia</div>
+            </div>
+            <div class="character-card" onclick="selecionarPersonagem('🧙‍♂️', 'Leo')">
+                <div class="character-avatar">🧙‍♂️</div>
+                <div class="character-name">Leo</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas do Jogo e Controles Mobile -->
+    <div id="canvas-container" style="display: none;">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- D-Pad Virtual para Mobile -->
+        <div id="mobile-controls">
+            <div class="dbtn" id="btn-up">▲</div>
+            <div class="dbtn" id="btn-left">◀</div>
+            <div class="dbtn" id="btn-right">▶</div>
+            <div class="dbtn" id="btn-down">▼</div>
+        </div>
+    </div>
+
+    <!-- Caixa de Diálogo -->
+    <div id="dialog-box">
+        <div>
+            <div id="npc-name">Dra. Helena</div>
+            <div id="text-content">Selecione um personagem para iniciar.</div>
+            <div id="quiz-options"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasContainer = document.getElementById('canvas-container');
+    const selectionScreen = document.getElementById('selection-screen');
+    const npcName = document.getElementById('npc-name');
+    const textContent = document.getElementById('text-content');
+    const quizOptions = document.getElementById('quiz-options');
+    const fragBadge = document.getElementById('frag-Calor');
+
+    let jogoIniciado = false;
+    let fragmentoObtido = false;
+
+    function resizeCanvas() {
+        if (canvasContainer.clientWidth > 0) {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+        }
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    const player = {
+        x: 40, y: 150,
+        speed: 3.5,
+        emoji: '🚶‍♂️',
+        nome: ''
+    };
+
+    const progresso = { intro: false, raposaDesafio: false, cameloDesafio: false };
+    const camera = { x: 0, y: 0 };
+    const mapWidth = 3000;
+
+    const paredes = [
+        { x: 250, y: 0, w: 30, h: 220 },
+        { x: 400, y: 100, w: 30, h: 300 },
+        { x: 550, y: 0, w: 30, h: 250 },
+        { x: 2200, y: 0, w: 500, h: 80 }
+    ];
+
+    const pedrasCaindo = [
+        { x: 750, y: -20, vy: 3 },
+        { x: 880, y: -100, vy: 3.5 },
+        { x: 1000, y: -60, vy: 2.8 }
+    ];
+
+    const escorpiao1 = { x: 1250, y: 180 };
+    const escorpiao2 = { x: 2450, y: 180 };
+
+    const npcs = [
+        { x: 1450, y: 180, emoji: '🦊', nome: 'Raposa-do-deserto' },
+        { x: 1850, y: 200, emoji: '🐪', nome: 'Camelo' },
+        { x: 2300, y: 180, emoji: '🦎', nome: 'Lagarto' },
+        { x: 2850, y: 180, emoji: '🔥', nome: 'Fragmento do Calor' }
+    ];
+
+    /* --- SISTEMA DE CONTROLES (TECLADO + MOBILE TOUCH) --- */
+    const keys = {};
+
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    // Suporte aos botões de toque na tela
+    function bindTouchControl(id, keyName) {
+        const btn = document.getElementById(id);
+        
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys[keyName] = true;
+        });
+
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys[keyName] = false;
+        });
+
+        // Também funciona com clique de mouse nos botões do D-Pad
+        btn.addEventListener('mousedown', () => keys[keyName] = true);
+        btn.addEventListener('mouseup', () => keys[keyName] = false);
+    }
+
+    bindTouchControl('btn-up', 'ArrowUp');
+    bindTouchControl('btn-down', 'ArrowDown');
+    bindTouchControl('btn-left', 'ArrowLeft');
+    bindTouchControl('btn-right', 'ArrowRight');
+
+    function toggleFullScreen() {
+        const gc = document.getElementById('game-container');
+        if (!document.fullscreenElement) gc.requestFullscreen().catch(() => {});
+        else document.exitFullscreen().catch(() => {});
+    }
+
+    function toggleJournal() {
+        alert("📖 Diário:\n- Raposa: grandes orelhas para liberar calor.\n- Camelo: gordura na corcova gera água e energia.\n- Lagarto: abrigo em rochas e cavernas.");
+    }
+
+    function selecionarPersonagem(emoji, nome) {
+        player.emoji = emoji;
+        player.nome = nome;
+        selectionScreen.style.display = 'none';
+        canvasContainer.style.display = 'block';
+        
+        resizeCanvas();
+        jogoIniciado = true;
+        
+        npcName.innerText = "Dra. Helena";
+        textContent.innerText = `Bem-vindo(a), ${nome}! Use o teclado ou o direcional na tela para se mover no deserto.`;
+        progresso.intro = true;
+
+        gameLoop();
+    }
+
+    function update() {
+        if (!jogoIniciado) return;
+
+        let dx = 0; let dy = 0;
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) dy -= player.speed;
+        if (keys['ArrowDown'] || keys['s'] || keys['S']) dy += player.speed;
+        if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx -= player.speed;
+        if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += player.speed;
+
+        let nextX = player.x + dx;
+        let nextY = player.y + dy;
+
+        if (nextX >= 10 && nextX <= mapWidth - 40) {
+            let colidiu = paredes.some(p => nextX + 20 > p.x && nextX < p.x + p.w && player.y + 20 > p.y && player.y < p.y + p.h);
+            if (!colidiu) player.x = nextX;
+        }
+        if (nextY >= 10 && nextY <= canvas.height - 30) {
+            let colidiu = paredes.some(p => player.x + 20 > p.x && player.x < p.x + p.w && nextY + 20 > p.y && nextY < p.y + p.h);
+            if (!colidiu) player.y = nextY;
+        }
+
+        camera.x = player.x - canvas.width / 3;
+        if (camera.x < 0) camera.x = 0;
+        if (camera.x > mapWidth - canvas.width) camera.x = mapWidth - canvas.width;
+
+        // Pedras
+        if (player.x > 680 && player.x < 1100) {
+            pedrasCaindo.forEach(pedra => {
+                pedra.y += pedra.vy;
+                if (pedra.y > canvas.height) pedra.y = -20;
+                if (Math.hypot(player.x - pedra.x, player.y - pedra.y) < 25) {
+                    npcName.innerText = "Aviso";
+                    textContent.innerText = "⚠️ Uma pedra atingiu você! Recuando...";
+                    player.x = 640;
+                }
+            });
+        }
+
+        // Escorpiões
+        [escorpiao1, escorpiao2].forEach((escorpiao, idx) => {
+            const minX = idx === 0 ? 1150 : 2350;
+            const maxX = idx === 0 ? 1380 : 2600;
+
+            if (player.x > minX && player.x < maxX) {
+                let angle = Math.atan2(player.y - escorpiao.y, player.x - escorpiao.x);
+                escorpiao.x += Math.cos(angle) * 2;
+                escorpiao.y += Math.sin(angle) * 2;
+
+                if (Math.hypot(player.x - escorpiao.x, player.y - escorpiao.y) < 25) {
+                    npcName.innerText = "Escorpião";
+                    textContent.innerText = "🦂 Cuidado! Você foi atacado!";
+                    player.x = minX - 30;
+                }
+            }
+        });
+
+        // NPCs
+        npcs.forEach(npc => {
+            if (Math.hypot(player.x - npc.x, player.y - npc.y) < 40) {
+                mecanicaNPC(npc.nome);
+            }
+        });
+    }
+
+    function mecanicaNPC(nome) {
+        quizOptions.innerHTML = "";
+
+        if (nome === 'Raposa-do-deserto' && !progresso.raposaDesafio) {
+            npcName.innerText = "Raposa-do-deserto";
+            textContent.innerText = "Como minhas orelhas me ajudam?";
+            quizOptions.innerHTML = `
+                <button class="quiz-btn" onclick="responderQuiz(true, 'raposaDesafio', 'Correto! Liberam calor.')">Liberam calor corporal</button>
+                <button class="quiz-btn" onclick="responderQuiz(false, 'raposaDesafio', 'Tente de novo!')">Guardam água</button>
+            `;
+        } else if (nome === 'Camelo' && !progresso.cameloDesafio) {
+            npcName.innerText = "Camelo";
+            textContent.innerText = "Qual a função da minha corcova?";
+            quizOptions.innerHTML = `
+                <button class="quiz-btn" onclick="responderQuiz(true, 'cameloDesafio', 'Exato! Gera energia e água.')">Gordura para energia/água</button>
+                <button class="quiz-btn" onclick="responderQuiz(false, 'cameloDesafio', 'Incorreto!')">Armazenar água líquida</button>
+            `;
+        } else if (nome === 'Lagarto') {
+            npcName.innerText = "Lagarto";
+            textContent.innerText = "Entrar na sombra regula nossa temperatura!";
+        } else if (nome === 'Fragmento do Calor' && !fragmentoObtido) {
+            npcName.innerText = "Dra. Helena";
+            textContent.innerText = "Para conquistar o fragmento: como os animais sobrevivem ao deserto?";
+            quizOptions.innerHTML = `
+                <button class="quiz-btn" onclick="concluirFase()">Adaptações fisiológicas e comportamentais</button>
+            `;
+        }
+    }
+
+    function responderQuiz(correto, chave, mensagem) {
+        textContent.innerText = mensagem;
+        if (correto) {
+            progresso[chave] = true;
+            quizOptions.innerHTML = "";
+        }
+    }
+
+    function concluirFase() {
+        fragmentoObtido = true;
+        fragBadge.classList.add('active');
+        quizOptions.innerHTML = "";
+        npcName.innerText = "Sucesso!";
+        textContent.innerText = "✨ Fragmento do Calor conquistado com sucesso!";
+    }
+
+    function render() {
+        ctx.fillStyle = '#e5b35c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(-camera.x, 0);
+
+        // Labirinto e Elementos
+        ctx.fillStyle = '#b8860b';
+        paredes.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+        ctx.fillStyle = '#4db6ac';
+        ctx.beginPath();
+        ctx.arc(1800, canvas.height / 2, 80, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#2c1d11';
+        ctx.fillRect(2200, 0, 500, canvas.height);
+
+        ctx.font = '22px Segoe UI Emoji';
+        pedrasCaindo.forEach(p => ctx.fillText('🪨', p.x, p.y));
+
+        ctx.fillText('🦂', escorpiao1.x, escorpiao1.y);
+        ctx.fillText('🦂', escorpiao2.x, escorpiao2.y);
+
+        npcs.forEach(npc => ctx.fillText(npc.emoji, npc.x, npc.y));
+        ctx.fillText(player.emoji, player.x, player.y);
+
+        ctx.restore();
+    }
+
+    function gameLoop() {
+        if (!jogoIniciado) return;
+        update();
+        render();
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+
+</body>
+</html>
