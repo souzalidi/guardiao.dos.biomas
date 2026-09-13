@@ -10,7 +10,7 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none; /* Evita seleção acidental de texto no mobile */
+            user-select: none;
             -webkit-user-select: none;
         }
 
@@ -198,9 +198,13 @@
             padding: 15px;
             width: 140px;
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .character-avatar { font-size: 40px; }
+        .character-img { width: 50px; height: 50px; object-fit: contain; }
         .character-name { font-weight: bold; color: #d4af37; margin: 8px 0 4px; font-size: 14px; }
     </style>
 </head>
@@ -233,8 +237,8 @@
                 <div class="character-avatar">🏃‍♀️</div>
                 <div class="character-name">Bia</div>
             </div>
-            <div class="character-card" onclick="selecionarPersonagem('🧙‍♂️', 'Leo')">
-                <div class="character-avatar">🧙‍♂️</div>
+            <div class="character-card" onclick="selecionarPersonagem('leo_img', 'Leo')">
+                <img src="/Personagem/Léo.png" class="character-img" alt="Léo">
                 <div class="character-name">Leo</div>
             </div>
         </div>
@@ -273,6 +277,10 @@
     const quizOptions = document.getElementById('quiz-options');
     const fragBadge = document.getElementById('frag-Calor');
 
+    // Carregamento da imagem do Leo com o caminho atualizado
+    const leoImage = new Image();
+    leoImage.src = '/Personagem/Léo.png';
+
     let jogoIniciado = false;
     let fragmentoObtido = false;
 
@@ -288,7 +296,8 @@
         x: 40, y: 150,
         speed: 3.5,
         emoji: '🚶‍♂️',
-        nome: ''
+        nome: '',
+        usaImagem: false
     };
 
     const progresso = { intro: false, raposaDesafio: false, cameloDesafio: false };
@@ -324,7 +333,6 @@
     window.addEventListener('keydown', e => keys[e.key] = true);
     window.addEventListener('keyup', e => keys[e.key] = false);
 
-    // Suporte aos botões de toque na tela
     function bindTouchControl(id, keyName) {
         const btn = document.getElementById(id);
         
@@ -338,7 +346,6 @@
             keys[keyName] = false;
         });
 
-        // Também funciona com clique de mouse nos botões do D-Pad
         btn.addEventListener('mousedown', () => keys[keyName] = true);
         btn.addEventListener('mouseup', () => keys[keyName] = false);
     }
@@ -358,8 +365,14 @@
         alert("📖 Diário:\n- Raposa: grandes orelhas para liberar calor.\n- Camelo: gordura na corcova gera água e energia.\n- Lagarto: abrigo em rochas e cavernas.");
     }
 
-    function selecionarPersonagem(emoji, nome) {
-        player.emoji = emoji;
+    function selecionarPersonagem(tipo, nome) {
+        if (tipo === 'leo_img') {
+            player.usaImagem = true;
+        } else {
+            player.emoji = tipo;
+            player.usaImagem = false;
+        }
+        
         player.nome = nome;
         selectionScreen.style.display = 'none';
         canvasContainer.style.display = 'block';
@@ -509,7 +522,13 @@
         ctx.fillText('🦂', escorpiao2.x, escorpiao2.y);
 
         npcs.forEach(npc => ctx.fillText(npc.emoji, npc.x, npc.y));
-        ctx.fillText(player.emoji, player.x, player.y);
+
+        // Renderização do jogador (Imagem ou Emoji)
+        if (player.usaImagem) {
+            ctx.drawImage(leoImage, player.x, player.y - 15, 35, 35);
+        } else {
+            ctx.fillText(player.emoji, player.x, player.y);
+        }
 
         ctx.restore();
     }
